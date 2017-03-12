@@ -87,7 +87,7 @@ void setup_waiting_for_low(void) {
 
     GIMSK |= _BV(INT0); // Enable INT0
 
-    // We can use SLEEP_MODE_PWR_DOWN
+    /* SLEEP_MODE_PWR_DOWN can be inturrupted with low level triggers */
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     sleep_enable();
 
@@ -103,7 +103,8 @@ void setup_waiting_for_high(void) {
 
     GIMSK |= _BV(INT0); // Enable INT0
 
-    /* We need SLEEP_MODE_IDLE to use rising edge trigger */
+    /* We need SLEEP_MODE_IDLE to use rising edge trigger.
+      (We can't use SLEEP_MODE_PWR_DOWN) */
     set_sleep_mode(SLEEP_MODE_IDLE);
     sleep_enable();
 
