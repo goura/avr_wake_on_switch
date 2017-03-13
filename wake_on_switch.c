@@ -34,7 +34,7 @@ typedef enum State {
     WAITING_FOR_HIGH,
 } State;
 
-static State state;
+volatile static State state;
 
 void blink(int ms) {
     int i;
@@ -45,8 +45,7 @@ void blink(int ms) {
 }
 
 ISR(INT0_vect) {
-    /* Disable all inturrupts */
-    cli();
+    /* Disable INT0 */
     GIMSK &= ~_BV(INT0);
 
     switch (state) {
@@ -79,12 +78,11 @@ void setup(void) {
 }
 
 void setup_waiting_for_low(void) {
-    state = WAITING_FOR_LOW;
-
     /* Set INT0 as low level trigger 
        (it's the only available trigger in SLEEP_MODE_PWR_DOWN) */
     MCUCR &= ~(_BV(ISC01) | _BV(ISC00));
 
+    cli(); // Hold on ISR firing until sleep_cpu()
     GIMSK |= _BV(INT0); // Enable INT0
 
     /* SLEEP_MODE_PWR_DOWN can be inturrupted with low level triggers */
@@ -92,15 +90,14 @@ void setup_waiting_for_low(void) {
     sleep_enable();
 
     sei(); // Enable all inturrupts
-    sleep_mode();
+    sleep_cpu();
 }
 
 void setup_waiting_for_high(void) {
-    state = WAITING_FOR_HIGH;
-
     /* Set INT0 as rising edge trigger */
-    MCUCR |= _BV(ISC01) | _BV(ISC00);
+    MCUCR |= (_BV(ISC01) | _BV(ISC00));
 
+    cli(); // Hold on ISR firing until sleep_cpu()
     GIMSK |= _BV(INT0); // Enable INT0
 
     /* We need SLEEP_MODE_IDLE to use rising edge trigger.
@@ -109,7 +106,7 @@ void setup_waiting_for_high(void) {
     sleep_enable();
 
     sei(); // Enable all inturrupts
-    sleep_mode();
+    sleep_cpu();
 }
 
 void do_action(void) {
@@ -117,8 +114,6 @@ void do_action(void) {
     blink(25); blink(25); blink(25);
     blink(25); blink(25); blink(25);
     blink(25); blink(25); blink(25);
-
-    state = UNKNOWN;
 }
 
 /* Scan PB1 and decide which state should it be in */
@@ -169,6 +164,7 @@ int main(void)
             break;
         case ACTIVE:
             do_action();
+            state = UNKNOWN;
             break;
         default:
             break;
